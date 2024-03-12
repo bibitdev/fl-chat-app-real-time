@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "483202025518",
+    "project_id": "fl-chat-app-real-time",
+    "storage_bucket": "fl-chat-app-real-time.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:483202025518:android:7cbd0c162c12ad640d77bf",
+        "android_client_info": {
+          "package_name": "com.example.chat_app_real_time"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDUuwCxi9x3QESQ6qzXa5yoxa_CVLWi7p4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
