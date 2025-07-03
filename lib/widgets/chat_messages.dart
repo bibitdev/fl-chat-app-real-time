@@ -2,6 +2,7 @@ import 'package:chat_app_real_time/widgets/message_bubble.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../utils/encryption_helper.dart'; // import helper
 
 class ChatMessage extends StatelessWidget {
   const ChatMessage({super.key});
@@ -13,10 +14,7 @@ class ChatMessage extends StatelessWidget {
     return StreamBuilder(
       stream: FirebaseFirestore.instance
           .collection('chat')
-          .orderBy(
-            'createdAt',
-            descending: true,
-          )
+          .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, chatSnapshot) {
         if (chatSnapshot.connectionState == ConnectionState.waiting) {
@@ -40,39 +38,39 @@ class ChatMessage extends StatelessWidget {
         final loadedMessages = chatSnapshot.data!.docs;
 
         return ListView.builder(
-            padding: const EdgeInsets.only(
-              bottom: 40,
-              left: 13,
-              right: 13,
-            ),
-            reverse: true,
-            itemCount: loadedMessages.length,
-            itemBuilder: (ctx, index) {
-              final chatMessage = loadedMessages[index].data();
-              final nextChatMessage = index + 1 < loadedMessages.length
-                  ? loadedMessages[index + 1].data()
-                  : null;
+          padding: const EdgeInsets.only(bottom: 40, left: 13, right: 13),
+          reverse: true,
+          itemCount: loadedMessages.length,
+          itemBuilder: (ctx, index) {
+            final chatMessage = loadedMessages[index].data();
+            final nextChatMessage = index + 1 < loadedMessages.length
+                ? loadedMessages[index + 1].data()
+                : null;
 
-              final currentMessageUserId = chatMessage['userId'];
-              final nextMessageUserId =
-                  nextChatMessage != null ? nextChatMessage['userId'] : null;
+            final currentMessageUserId = chatMessage['userId'];
+            final nextMessageUserId =
+                nextChatMessage != null ? nextChatMessage['userId'] : null;
 
-              final nextUserIsSame = nextMessageUserId == currentMessageUserId;
+            final nextUserIsSame = nextMessageUserId == currentMessageUserId;
 
-              if (nextUserIsSame) {
-                return MessageBubble.next(
-                  message: chatMessage['text'],
-                  isMe: authenticatedUser.uid == currentMessageUserId,
-                );
-              } else {
-                return MessageBubble.first(
-                  userImage: chatMessage['userimage'],
-                  username: chatMessage['username'],
-                  message: chatMessage['text'],
-                  isMe: authenticatedUser.uid == currentMessageUserId,
-                );
-              }
-            });
+            // 🔓 Dekripsi pesan sebelum ditampilkan
+            final decryptedText = EncryptionHelper.decryptText(chatMessage['text']);
+
+            if (nextUserIsSame) {
+              return MessageBubble.next(
+                message: decryptedText,
+                isMe: authenticatedUser.uid == currentMessageUserId,
+              );
+            } else {
+              return MessageBubble.first(
+                userImage: chatMessage['userimage'],
+                username: chatMessage['username'],
+                message: decryptedText,
+                isMe: authenticatedUser.uid == currentMessageUserId,
+              );
+            }
+          },
+        );
       },
     );
   }

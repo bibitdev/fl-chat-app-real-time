@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../utils/encryption_helper.dart'; // import helper
 
 class NewMessage extends StatefulWidget {
   const NewMessage({super.key});
@@ -28,18 +29,19 @@ class _NewMessageState extends State<NewMessage> {
     FocusScope.of(context).unfocus();
     _messageController.clear();
 
-    //send to firebase
-
     final user = FirebaseAuth.instance.currentUser!;
 
-    //mengambil data dari firestore yg ada di auth
+    // Mengambil data user dari firestore
     final userData = await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
         .get();
 
-    FirebaseFirestore.instance.collection('chat').add({
-      'text': enteredMessage,
+    // 🔐 Enkripsi pesan sebelum dikirim
+    final encryptedText = EncryptionHelper.encryptText(enteredMessage);
+
+    await FirebaseFirestore.instance.collection('chat').add({
+      'text': encryptedText,
       'createdAt': Timestamp.now(),
       'userId': user.uid,
       'username': userData.data()!['username'],

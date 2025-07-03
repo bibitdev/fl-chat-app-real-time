@@ -1,10 +1,10 @@
 import 'dart:io';
-
 import 'package:chat_app_real_time/widgets/user_image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../utils/hash_helper.dart'; // opsional
 
 final _firebase = FirebaseAuth.instance;
 
@@ -27,26 +27,31 @@ class _AuthScreenState extends State<AuthScreen> {
 
   void _submit() async {
     final isValid = _formKey.currentState!.validate();
-
-    if (!isValid || !_isLogin && _selectedImage == null) {
-      //show error message...
+    if (!isValid || (!_isLogin && _selectedImage == null)) {
       return;
     }
 
     _formKey.currentState!.save();
 
-    try {
-      setState(() {
-        _isAuthenticating = true;
-      });
-      if (_isLogin) {
-        //log user
-        final userCredentials = await _firebase.signInWithEmailAndPassword(
-            email: _enteredEmail, password: _enteredPassword);
-      } else {
-        final userCredentials = await _firebase.createUserWithEmailAndPassword(
-            email: _enteredEmail, password: _enteredPassword);
+    setState(() {
+      _isAuthenticating = true;
+    });
 
+    try {
+      if (_isLogin) {
+        // ✅ Login langsung ke Firebase Auth
+        await _firebase.signInWithEmailAndPassword(
+          email: _enteredEmail,
+          password: _enteredPassword,
+        );
+      } else {
+        // ✅ Sign up ke Firebase Auth
+        final userCredentials = await _firebase.createUserWithEmailAndPassword(
+          email: _enteredEmail,
+          password: _enteredPassword,
+        );
+
+        // Upload foto ke Firebase Storage
         final storageRef = FirebaseStorage.instance
             .ref()
             .child('user_images')
@@ -55,31 +60,28 @@ class _AuthScreenState extends State<AuthScreen> {
         await storageRef.putFile(_selectedImage!);
         final imageUrl = await storageRef.getDownloadURL();
 
-        //Firestore
+        // Simpan data user ke Firestore
         await FirebaseFirestore.instance
             .collection('users')
             .doc(userCredentials.user!.uid)
             .set({
           'username': _enteredUsername,
           'email': _enteredEmail,
-          'password': _enteredPassword,
-          'image_url': imageUrl
+          'image_url': imageUrl,
+          // opsional: simpan hashed password (tidak dipakai login)
+          'password': HashHelper.hashPassword(_enteredPassword),
         });
       }
     } on FirebaseAuthException catch (error) {
-      if (error.code == 'email-already-in-use') {
-        //.....
-      }
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message ?? 'Authentication failed'),
-        ),
+        SnackBar(content: Text(error.message ?? 'Authentication failed')),
       );
-      setState(() {
-        _isAuthenticating = false;
-      });
     }
+
+    setState(() {
+      _isAuthenticating = false;
+    });
   }
 
   @override
@@ -119,7 +121,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             ),
                           TextFormField(
                             decoration: const InputDecoration(
-                              labelText: 'Email Addreess',
+                              labelText: 'Email Address',
                             ),
                             keyboardType: TextInputType.emailAddress,
                             autocorrect: false,
@@ -136,23 +138,24 @@ class _AuthScreenState extends State<AuthScreen> {
                               _enteredEmail = value!;
                             },
                           ),
-                          if(!_isLogin)
-                          TextFormField(
-                            decoration: const InputDecoration(
-                              labelText: 'Username',
+                          if (!_isLogin)
+                            TextFormField(
+                              decoration: const InputDecoration(
+                                labelText: 'Username',
+                              ),
+                              enableSuggestions: false,
+                              validator: (value) {
+                                if (value == null ||
+                                    value.isEmpty ||
+                                    value.trim().length < 4) {
+                                  return 'Please enter at least 4 characters.';
+                                }
+                                return null;
+                              },
+                              onSaved: (value) {
+                                _enteredUsername = value!;
+                              },
                             ),
-                            enableSuggestions: false,
-                            validator: (value) {
-                              if (value == null ||
-                                  value.isEmpty ||
-                                  value.trim().length < 4) {
-                                return 'Please enter at least 4 characters.';
-                              }
-                            },
-                            onSaved: (value) {
-                              _enteredUsername = value!;
-                            },
-                          ),
                           TextFormField(
                             decoration: const InputDecoration(
                               labelText: 'Password',
@@ -168,9 +171,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               _enteredPassword = value!;
                             },
                           ),
-                          const SizedBox(
-                            height: 12.0,
-                          ),
+                          const SizedBox(height: 12.0),
                           if (_isAuthenticating)
                             const CircularProgressIndicator(),
                           if (!_isAuthenticating)
@@ -181,30 +182,25 @@ class _AuthScreenState extends State<AuthScreen> {
                                     .colorScheme
                                     .primaryContainer,
                               ),
-                              child: Text(_isLogin ? 'Login' : 'SignUp'),
+                              child: Text(_isLogin ? 'Login' : 'Sign Up'),
                             ),
                           if (!_isAuthenticating)
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                TextButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _isLogin = !_isLogin;
-                                    });
-                                  },
-                                  child: Text(_isLogin
-                                      ? 'Create an account'
-                                      : 'I already have an account'),
-                                ),
-                              ],
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _isLogin = !_isLogin;
+                                });
+                              },
+                              child: Text(_isLogin
+                                  ? 'Create an account'
+                                  : 'I already have an account'),
                             ),
                         ],
                       ),
                     ),
                   ),
                 ),
-              )
+              ),
             ],
           ),
         ),
